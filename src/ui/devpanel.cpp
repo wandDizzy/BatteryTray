@@ -29,7 +29,11 @@ std::wstring DeviceSourceText(const Device& d) {
 
 Color DeviceLevelColor(const Device& d) { return FromCR(LevelColor(d, AppConfig())); }
 
-float DevicePanelHeight(const Device&) { return 540.f; }
+// Devices that never report a level get no low-battery notification rows.
+static bool NoLevel(const Device& d) { return d.battery < 0; }
+static const float kNotifyRowsH = 38.f + 24.f + 36.f;
+
+float DevicePanelHeight(const Device& d) { return NoLevel(d) ? 540.f - kNotifyRowsH : 540.f; }
 
 float DevicePanel(Ui& ui, UiWindow* host, const Rect& r, const Device& dev, bool showAllSettings) {
     const Theme& th = ui.th;
@@ -171,18 +175,20 @@ float DevicePanel(Ui& ui, UiWindow* host, const Rect& r, const Device& dev, bool
     };
     bool show = !ds.hidden;
     if (toggleRow(T("dev_show"), Ico::Eye, show, ID("show"))) { ds.hidden = !show; AppApply(); }
-    if (toggleRow(T("dev_notify"), Ico::Bell, ds.notify, ID("notify"))) AppApply();
+    if (!NoLevel(dev)) {
+        if (toggleRow(T("dev_notify"), Ico::Bell, ds.notify, ID("notify"))) AppApply();
 
-    int thr = ds.lowThreshold >= 0 ? ds.lowThreshold : cfg.lowThreshold;
-    float na = ui.Anim(ID("thr_anim"), ds.notify ? 1.f : 0.4f, 14.f);
-    float sa = ui.alpha;
-    ui.alpha *= na;
-    ui.Text(T("dev_threshold"), Rect(x + 28, y, w - 90, 24), 12.5f, th.text2);
-    ui.Text(std::to_wstring(thr) + L"%", Rect(x + w - 60, y, 60, 24), 12.5f, th.text, 600, ALIGN_RIGHT);
-    y += 24;
-    if (ui.Slider(ID("thr"), Rect(x + 28, y, w - 38, 24), thr, 5, 50)) { ds.lowThreshold = thr; AppApply(); }
-    ui.alpha = sa;
-    y += 36;
+        int thr = ds.lowThreshold >= 0 ? ds.lowThreshold : cfg.lowThreshold;
+        float na = ui.Anim(ID("thr_anim"), ds.notify ? 1.f : 0.4f, 14.f);
+        float sa = ui.alpha;
+        ui.alpha *= na;
+        ui.Text(T("dev_threshold"), Rect(x + 28, y, w - 90, 24), 12.5f, th.text2);
+        ui.Text(std::to_wstring(thr) + L"%", Rect(x + w - 60, y, 60, 24), 12.5f, th.text, 600, ALIGN_RIGHT);
+        y += 24;
+        if (ui.Slider(ID("thr"), Rect(x + 28, y, w - 38, 24), thr, 5, 50)) { ds.lowThreshold = thr; AppApply(); }
+        ui.alpha = sa;
+        y += 36;
+    }
 
     // ---------------------------------------------------------- position / all settings
     if (ui.IconButton(ID("left"), Rect(x, y, 36, 32), Ico::Left, false, 12.f)) AppMoveDevice(id, -1);

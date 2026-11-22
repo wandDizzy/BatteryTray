@@ -15,10 +15,27 @@ public:
     std::string id;
     Device last;          // shown if the device disappears while the popup is open
     bool closing = false;
+    float shownH = 0;     // panel height the window was sized for
+    bool above = true;    // popup sits above the taskbar (grow/shrink upwards)
+
+    // the panel height depends on the device (e.g. no notification rows when it reports no level)
+    void FitHeight(float want) {
+        RECT rc;
+        GetWindowRect(hwnd, &rc);
+        float s = GetDpiForWindow(hwnd) / 96.f;
+        int h = (int)((want + 36) * s);
+        int top = above ? rc.bottom - h : rc.top;
+        SetWindowPos(hwnd, nullptr, rc.left, top, rc.right - rc.left, h, SWP_NOZORDER | SWP_NOACTIVATE);
+    }
 
     void Frame(Ui& ui, const Rect& client) override {
         const Device* d = AppFindDevice(id);
         if (d) last = *d;
+        float want = DevicePanelHeight(last);
+        if (!closing && want != shownH) {
+            shownH = want;
+            ui.Defer([this, want]() { FitHeight(want); });
+        }
         int openId = Ui::Id("flyout_open");
         float open = ui.Anim(openId, closing ? 0.f : 1.f, closing ? 22.f : 13.f);
         if (closing && open <= 0.02f) {
@@ -102,6 +119,8 @@ void FlyoutShow(const std::string& deviceId, const RECT& anchor) {
     auto* f = new Flyout();
     f->id = deviceId;
     f->last = *d;
+    f->shownH = DevicePanelHeight(*d);
+    f->above = y < anchor.top;
     f->Prime();
     RECT rc{x, y, x + w, y + h};
     if (!f->Create(L"BatteryTrayFlyout", WS_POPUP, WS_EX_TOOLWINDOW | WS_EX_TOPMOST, L"BatteryTray", rc, nullptr, true)) {
