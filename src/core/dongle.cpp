@@ -57,6 +57,11 @@ static bool PathHas(const std::wstring& path, const wchar_t* part) {
 // After a feature report with command F7 the receiver returns its status:
 //   [0] report ID, [1] ready, [2] keyboard %, [3] mouse %, [4] keyboard off, [5] mouse off
 // Layout and request as documented by the Joule project; verified here on 3151:402D and 379A:1807.
+// last state of every device seen on a GearHub receiver: when the receiver answers with an empty
+// status (it does so while its device is on the cable, in another mode or long switched off), the
+// device is still shown, as "not connected", instead of disappearing
+static std::map<std::string, Device> g_gearLast;
+
 static bool IsGearHub(unsigned short vid) { return vid == 0x3151 || vid == 0x379A; }
 
 static bool IsGearHubStatus(const std::vector<unsigned char>& b) {
@@ -100,6 +105,34 @@ void PollDongles(std::vector<Device>& out) {
             }
             CloseHandle(h);
             DbgLog("dongle %04X:%04X %s %s", f.vid, f.pid, gearhub ? "F7" : "raw", HexDump(buf.data(), 16).c_str());
+            if (!ok && gearhub) {
+                bool any = false;
+                for (auto& kv : g_gearLast) {
+                    if (kv.first.compare(0, base.size(), base) != 0) continue;
+                    Device d = kv.second;
+                    // The receiver's status block can get stuck empty while the device keeps working
+                    // (typing / moving still goes through; replugging the receiver clears it). If the
+                    // user is using a device of this type right now, it is clearly connected: keep it
+                    // online with its last known level instead of calling it "not connected".
+                    d.online = MsSinceUse(d.type) < 120000;
+                    d.idle = false;
+                    d.charging = false;
+                    out.push_back(d);
+                    any = true;
+                }
+                if (!any && s && !s->name.empty()) {   // a known receiver whose device was never seen yet
+                    Device d;
+                    d.id = base;
+                    d.name = s->name;
+                    d.type = s->type;
+                    d.source = "dongle";
+                    d.battery = -1;
+                    d.online = false;
+                    out.push_back(d);
+                }
+                seen[base] = true;
+                continue;
+            }
             if (!ok) continue;
             seen[base] = true;
 
@@ -136,6 +169,7 @@ void PollDongles(std::vector<Device>& out) {
                                (unsigned long)MsSinceUse(sl.type));
                     d.online = stt != 2;
                     d.idle = stt == 1;
+                    g_gearLast[d.id] = d;
                     out.push_back(d);
                 }
                 continue;

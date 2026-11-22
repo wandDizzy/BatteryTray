@@ -102,7 +102,7 @@ const Entry kTable[] = {
     {"ov_enable", L"Show the overlay", L"Показувати оверлей", L"Показывать оверлей"},
     {"ov_desc", L"Over windowed and borderless games; the hotkey shows / hides it", L"Поверх ігор у вікні та без рамки; клавіша показує / ховає", L"Поверх игр в окне и без рамки; клавиша показывает / скрывает"},
     {"ov_key", L"Hotkey", L"Гаряча клавіша", L"Горячая клавиша"},
-    {"ov_key_note", L"Shift+Tab doesn't block the key: it still reaches the game and other programs", L"Shift+Tab не перехоплюється: клавіша далі доходить до гри та інших програм", L"Shift+Tab не перехватывается: клавиша по-прежнему доходит до игры и других программ"},
+    {"ov_key_note", L"Doesn't take the key away from games", L"Не забирає клавішу в ігор", L"Не отнимает клавишу у игр"},
     {"ov_games_only", L"Shift+Tab only in games", L"Shift+Tab лише в іграх", L"Shift+Tab только в играх"},
     {"ov_games_only_note", L"Reacts only while a fullscreen or borderless game is in front", L"Спрацьовує лише коли попереду гра на весь екран або без рамок", L"Срабатывает только когда впереди игра на весь экран или без рамок"},
     {"off_short", L"off", L"вимк.", L"откл."},

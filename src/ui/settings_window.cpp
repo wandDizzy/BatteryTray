@@ -28,17 +28,19 @@ public:
     // ------------------------------------------------------------ helpers
     // Card row: icon + title (+ description). Returns the rectangle for the control on the right.
     Rect Row(Ui& ui, float& y, float x, float w, wchar_t icon, const std::wstring& title,
-             const std::wstring& desc = L"", float h = 0) {
+             const std::wstring& desc = L"", float h = 0, float ctlW = 0) {
         const Theme& th = ui.th;
         if (h <= 0) h = desc.empty() ? 56.f : 66.f;
         Rect card(x, y, w, h);
         ui.Card(0, card);
         ui.Icon(icon, Rect(x + 16, y, 24, h), 17, th.text);
+        // the text must end before the control on the right (ctlW = its width, when known)
+        float tw = ctlW > 0 ? w - 56 - 16 - ctlW - 16 : w * 0.55f;
         if (desc.empty()) {
-            ui.Text(title, Rect(x + 56, y, w * 0.5f, h), 14.f, th.text);
+            ui.Text(title, Rect(x + 56, y, ctlW > 0 ? tw : w * 0.5f, h), 14.f, th.text);
         } else {
-            ui.Text(title, Rect(x + 56, y + h / 2 - 21, w * 0.55f, 22), 14.f, th.text);
-            ui.Text(desc, Rect(x + 56, y + h / 2 + 1, w * 0.55f, 20), 12.f, th.text2);
+            ui.Text(title, Rect(x + 56, y + h / 2 - 21, tw, 22), 14.f, th.text);
+            ui.Text(desc, Rect(x + 56, y + h / 2 + 1, tw, 20), 12.f, th.text2);
         }
         y += h + 6;
         return Rect(x + w * 0.45f, card.y, w * 0.55f - 16, h);
@@ -112,7 +114,7 @@ public:
 
         Header(ui, y, x, T("ap_theme"));
         {
-            Rect ctl = Row(ui, y, x, w, Ico::Brush, T("ap_theme"));
+            Rect ctl = Row(ui, y, x, w, Ico::Brush, T("ap_theme"), L"", 0, 330);
             int sel = c.theme.mode == "dark" ? 1 : c.theme.mode == "light" ? 2 : 0;
             if (ui.Segmented(Ui::Id("seg_theme"), Rect(ctl.r() - 330, ctl.cy() - 16, 330, 32),
                              {T("theme_system"), T("theme_dark"), T("theme_light")}, sel)) {
@@ -214,7 +216,7 @@ public:
         y += 12;
         Header(ui, y, x, T("ap_display"));
         {
-            Rect ctl = Row(ui, y, x, w, 0xE7F4, T("ap_display"));
+            Rect ctl = Row(ui, y, x, w, 0xE7F4, T("ap_display"), L"", 0, 360);
             int sel = c.displayMode;
             if (ui.Segmented(Ui::Id("seg_disp"), Rect(ctl.r() - 360, ctl.cy() - 16, 360, 32),
                              {T("disp_widget"), T("disp_tray"), T("disp_both")}, sel)) {
@@ -222,7 +224,7 @@ public:
             }
         }
         {
-            Rect ctl = Row(ui, y, x, w, Ico::Battery, T("ap_tray_style"));
+            Rect ctl = Row(ui, y, x, w, Ico::Battery, T("ap_tray_style"), L"", 0, 360);
             int sel = c.iconStyle;
             if (ui.Segmented(Ui::Id("seg_style"), Rect(ctl.r() - 360, ctl.cy() - 16, 360, 32),
                              {T("style_number"), T("style_badge"), T("style_battery")}, sel)) {
@@ -240,7 +242,7 @@ public:
             if (ui.Toggle(Ui::Id("hover"), Rect(ctl.r() - 40, ctl.y, 40, ctl.h), v)) { c.widgetHover = v; AppApply(); }
         }
         {
-            Rect ctl = Row(ui, y, x, w, 0xE703, T("ap_offline"));
+            Rect ctl = Row(ui, y, x, w, 0xE703, T("ap_offline"), L"", 0, 380);
             int sel = !c.showOffline ? 2 : c.offlineStyle == "dim" ? 1 : 0;
             if (ui.Segmented(Ui::Id("seg_off"), Rect(ctl.r() - 380, ctl.cy() - 16, 380, 32),
                              {T("off_strike"), T("off_dim"), T("off_hide")}, sel)) {
@@ -289,7 +291,7 @@ public:
         float sa = ui.alpha;
         ui.alpha *= oa;
         {
-            Rect ctl = Row(ui, y, x, w, 0xE916, T("ov_mode"));
+            Rect ctl = Row(ui, y, x, w, 0xE916, T("ov_mode"), L"", 0, 380);
             int sel = c.overlay.mode == "low" ? 1 : c.overlay.mode == "hotkey" ? 2 : 0;
             if (ui.Segmented(Ui::Id("ov_mode"), Rect(ctl.r() - 380, ctl.cy() - 16, 380, 32),
                              {T("ov_always"), T("ov_low"), T("ov_hotkey")}, sel)) {
@@ -299,7 +301,7 @@ public:
             }
         }
         {
-            Rect ctl = Row(ui, y, x, w, 0xE92E, T("ov_key"), T("ov_key_note"));
+            Rect ctl = Row(ui, y, x, w, 0xE92E, T("ov_key"), T("ov_key_note"), 0, 440);
             const char* keys[] = {"shift+tab", "ctrl+shift+b", "alt+b", "ctrl+alt+b"};
             int sel = 0;
             for (int i = 0; i < 4; i++) if (c.overlay.hotkey == keys[i]) sel = i;
@@ -315,7 +317,7 @@ public:
             if (ui.Toggle(Ui::Id("ov_games"), Rect(ctl.r() - 40, ctl.y, 40, ctl.h), v)) { c.overlay.gamesOnly = v; AppApply(); }
         }
         {
-            Rect ctl = Row(ui, y, x, w, 0xE7F4, T("ov_corner"));
+            Rect ctl = Row(ui, y, x, w, 0xE7F4, T("ov_corner"), L"", 0, 480);
             const char* keys[] = {"top-left", "top-right", "bottom-left", "bottom-right"};
             int sel = 1;
             for (int i = 0; i < 4; i++) if (c.overlay.corner == keys[i]) sel = i;
@@ -345,7 +347,7 @@ public:
         Config& c = AppConfig();
         const Theme& th = ui.th;
         {
-            Rect ctl = Row(ui, y, x, w, Ico::Clock, T("gen_interval"));
+            Rect ctl = Row(ui, y, x, w, Ico::Clock, T("gen_interval"), L"", 0, 400);
             const int vals[] = {5, 10, 30, 60, 300};
             int sel = 0;
             for (int i = 0; i < 5; i++) if (c.intervalSec == vals[i]) sel = i;
@@ -382,7 +384,7 @@ public:
         }
         if ((r = toggleRow(T("gen_offline"), Ico::Eye, c.showOffline, Ui::Id("offline"))) >= 0) { c.showOffline = r; AppApply(); }
         {
-            Rect ctl = Row(ui, y, x, w, Ico::Globe, T("gen_language"));
+            Rect ctl = Row(ui, y, x, w, Ico::Globe, T("gen_language"), L"", 0, 420);
             int sel = c.language == L"en" ? 1 : c.language == L"uk" ? 2 : c.language == L"ru" ? 3 : 0;
             if (ui.Segmented(Ui::Id("seg_lang"), Rect(ctl.r() - 420, ctl.cy() - 16, 420, 32),
                              {T("lang_auto"), L"English", L"Українська", L"Русский"}, sel)) {
