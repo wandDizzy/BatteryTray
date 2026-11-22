@@ -5,7 +5,7 @@
 #include <string>
 #include <vector>
 
-#define BT_VERSION "2.0.6"
+#define BT_VERSION "2.0.7"
 #define BT_REPO_URL L"https://github.com/wandDizzy/BatteryTray"
 
 Config& AppConfig();

@@ -105,6 +105,8 @@ const Entry kTable[] = {
     {"ov_key_note", L"Doesn't take the key away from games", L"Не забирає клавішу в ігор", L"Не отнимает клавишу у игр"},
     {"ov_games_only", L"Shift+Tab only in games", L"Shift+Tab лише в іграх", L"Shift+Tab только в играх"},
     {"ov_games_only_note", L"Reacts only while a fullscreen or borderless game is in front", L"Спрацьовує лише коли попереду гра на весь екран або без рамок", L"Срабатывает только когда впереди игра на весь экран или без рамок"},
+    {"wired", L"Wired", L"По дроту", L"По проводу"},
+    {"wired_short", L"cable", L"кабель", L"кабель"},
     {"off_short", L"off", L"вимк.", L"откл."},
     {"ap_offline", L"Disconnected devices", L"Відключені пристрої", L"Отключённые устройства"},
     {"off_strike", L"Cross out", L"Перекреслити", L"Перечеркнуть"},

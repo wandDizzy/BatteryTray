@@ -12,6 +12,7 @@ struct Device {
     bool         online = false;
     bool         idle = false;      // dongle says the device is asleep or switched off (last level is kept)
     bool         charging = false;
+    bool         wired = false;     // connected with a cable (the receiver has no radio link then)
     std::string  source;        // "dongle" | "hid" | "hidpp" | "bluetooth"
 };
 
@@ -42,4 +43,5 @@ void PollGamepads(std::vector<Device>& out);   // XInput (Xbox-compatible) and S
 
 // activity.cpp: tells a sleeping device from a switched-off one
 void  ActivityTick();              // call about once a second
+void  ActivityKey();               // a keyboard event arrived (raw input)
 unsigned long MsSinceUse(DevType t);       // ms since the user last used a mouse / keyboard

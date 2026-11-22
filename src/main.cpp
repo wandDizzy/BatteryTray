@@ -168,6 +168,7 @@ static std::wstring Tip(const Device& d) {
     else t += std::wstring(L" — ") + T("unknown");
     if (!d.online) t += std::wstring(L" (") + T("not_connected") + L")";
     else if (d.idle) t += std::wstring(L" (") + T("asleep") + L")";
+    else if (d.wired) t += std::wstring(L" (") + T("wired") + L")";
     else if (d.charging) t += std::wstring(L" (") + T("charging") + L")";
     return t;
 }
@@ -234,7 +235,7 @@ static void UpdateUi() {
         // low-battery notification (once per discharge cycle), also for hidden devices
         const DeviceSettings& ds = g_cfg.devices[d.id];
         int thr = ds.lowThreshold >= 0 ? ds.lowThreshold : g_cfg.lowThreshold;
-        bool low = d.online && !d.idle && !d.charging && d.battery >= 0 && d.battery <= thr;
+        bool low = d.online && !d.idle && !d.charging && !d.wired && d.battery >= 0 && d.battery <= thr;
         UINT& id = g_iconIds[d.id];
         if (!id) id = g_nextId++;
         if (low && g_cfg.notifyLow && ds.notify && !g_notified.count(d.id)) {
@@ -264,12 +265,13 @@ static void UpdateUi() {
         w.customGlyphColor = AppGlyphColor(d, &w.glyphColor);
         w.text = d.battery >= 0 ? std::to_wstring(d.battery) + (g_cfg.widgetPercent ? L"%" : L"") : L"?";
         w.textColor = LevelColor(d, g_cfg);
-        w.charging = d.online && d.charging;
+        w.charging = d.online && (d.charging || d.wired);   // on the cable = charging (bolt)
         w.offline = !d.online;
         w.dim = d.online && d.idle;
         w.strike = w.offline && g_cfg.offlineStyle == "strike";
         if (w.offline) w.textColor = OfflineTextColor();
         if (w.strike) w.text = T("off_short");
+        if (d.wired && d.battery < 0) w.text = T("wired_short");
         w.tip = Tip(d);
         items.push_back(w);
 
@@ -315,6 +317,27 @@ void AppApply() {
 
 // ===================================================================== polling
 
+// One rule for every device, not only GearHub receivers: when a device stops answering, it is
+// "asleep" if it had been idle for a while and "not connected" if it was in use moments ago
+// (it was switched off). Headsets, gamepads and the rest don't doze off like mice and keyboards,
+// so for them no answer means switched off. Decided once when it stops answering.
+// GearHub receivers ("dongle:") decide this themselves (they also know about the cable).
+static void ApplyLinkRules(std::vector<Device>& list) {
+    static std::map<std::string, bool> decidedOff;
+    for (auto& d : list) {
+        if (d.id.compare(0, 7, "dongle:") == 0 || d.wired) continue;
+        if (!d.idle || !d.online) { decidedOff.erase(d.id); continue; }
+        auto it = decidedOff.find(d.id);
+        if (it == decidedOff.end()) {
+            bool sleeps = d.type == DevType::Mouse || d.type == DevType::Keyboard;
+            bool off = !sleeps || MsSinceUse(d.type) < 15000;
+            it = decidedOff.emplace(d.id, off).first;
+            DbgLog("link %s -> %s", d.id.c_str(), off ? "off" : "asleep");
+        }
+        if (it->second) { d.idle = false; d.online = false; }
+    }
+}
+
 static DWORD WINAPI PollThread(LPVOID) {
     HANDLE ev[2] = {g_quit, g_wake};
     DWORD lastBt = 0;
@@ -332,6 +355,7 @@ static DWORD WINAPI PollThread(LPVOID) {
         DWORD now = GetTickCount();
         if (!lastBt || now - lastBt > 30000) { bt.clear(); PollBluetooth(bt); lastBt = now; }
         list->insert(list->end(), bt.begin(), bt.end());
+        ApplyLinkRules(*list);
         if (!PostMessageW(g_wnd, WM_POLLED, 0, (LPARAM)list)) delete list;
         DWORD r = WaitForMultipleObjects(2, ev, FALSE, (DWORD)g_interval * 1000);
         if (r == WAIT_OBJECT_0) return 0;
@@ -386,6 +410,9 @@ static LRESULT CALLBACK WndProc(HWND h, UINT msg, WPARAM wp, LPARAM lp) {
     case WM_WIDGET_REATTACH:
         WidgetReattach();
         return 0;
+    case WM_INPUT:
+        ActivityKey();
+        break;   // DefWindowProc frees the raw input
     case WM_DEVICECHANGE:   // receiver plugged / unplugged -> refresh soon
         SetTimer(h, 1, 1500, nullptr);
         return TRUE;
@@ -481,6 +508,10 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, LPWSTR, int) {
     RegisterClassW(&wc);
     g_wnd = CreateWindowExW(0, kWndClass, L"BatteryTray", 0, 0, 0, 0, 0, nullptr, nullptr, inst, nullptr);
     SetTimer(g_wnd, 4, 1000, nullptr);
+    {   // keyboard activity (asleep vs switched off): raw keyboard events, a few per keystroke
+        RAWINPUTDEVICE rid{0x01, 0x06, RIDEV_INPUTSINK, g_wnd};
+        RegisterRawInputDevices(&rid, 1, sizeof(rid));
+    }
     g_taskbarCreated = RegisterWindowMessageW(L"TaskbarCreated");
     ApplyHotkey();   // overlay on / off
     ChangeWindowMessageFilterEx(g_wnd, g_taskbarCreated, MSGFLT_ALLOW, nullptr);

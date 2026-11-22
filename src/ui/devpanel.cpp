@@ -14,6 +14,7 @@ const IconColor kIconColors[] = {
 std::wstring DeviceStatusText(const Device& d) {
     if (!d.online) return T("not_connected");
     if (d.idle) return T("asleep");
+    if (d.wired) return T("wired");
     if (d.charging) return T("charging");
     if (d.battery < 0) return T("no_level");
     return T("online");

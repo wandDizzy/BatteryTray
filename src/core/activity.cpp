@@ -30,6 +30,9 @@ void ActivityTick() {
     }
 }
 
+// called for every raw keyboard event (WM_INPUT): exact keyboard activity
+void ActivityKey() { g_keyAt = GetTickCount(); }
+
 // milliseconds since the last use of a device of this type (very large if never seen)
 unsigned long MsSinceUse(DevType t) {
     DWORD at = t == DevType::Keyboard ? g_keyAt.load() : g_mouseAt.load();

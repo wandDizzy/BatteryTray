@@ -71,12 +71,41 @@ static bool IsGearHubStatus(const std::vector<unsigned char>& b) {
     return false;
 }
 
+// A GearHub receiver calls itself "... 2.4G ..." (e.g. "Hator 2.4G 1K", "AJAZZ 2.4G 8K"); the same
+// vendor's keyboard or mouse plugged in with its cable shows up under its own product id and name
+// (e.g. 379A:1806 "SKYFALL 80 PRO" next to the receiver 379A:1807).
+static bool IsReceiver(const HidIface& f, std::vector<DongleSpec>& custom) {
+    if (FindSpec(f.vid, f.pid, custom)) return true;
+    return PathHas(f.product, L"2.4g") || PathHas(f.product, L"receiver") || PathHas(f.product, L"dongle");
+}
+
+struct Wired { DevType type; std::wstring name; unsigned short pid; };
+
 void PollDongles(std::vector<Device>& out) {
     std::vector<DongleSpec> custom;
     { std::lock_guard<std::mutex> lk(g_customMx); custom = g_custom; }
 
     auto ifaces = EnumHid();
     std::map<std::string, bool> seen;
+
+    // devices of GearHub vendors connected by cable: interface 0 tells what they are
+    std::map<unsigned short, std::vector<Wired>> wired;   // by vendor id
+    for (auto& f : ifaces) {
+        if (!IsGearHub(f.vid) || IsReceiver(f, custom) || InterfaceNumber(f.path) != 0 || f.usagePage != 0x01) continue;
+        DevType t = TypeFromUsage(f.usagePage, f.usage);
+        if (t != DevType::Keyboard && t != DevType::Mouse) continue;
+        bool dup = false;
+        for (auto& w : wired[f.vid]) dup |= w.pid == f.pid;
+        if (!dup) wired[f.vid].push_back({t, f.product, f.pid});
+    }
+    for (auto& kv : wired)
+        for (auto& w : kv.second)
+            DbgLog("wired %04X:%04X type=%d", kv.first, w.pid, (int)w.type);
+    auto wiredOf = [&](unsigned short vid, DevType t) -> const Wired* {
+        for (auto& w : wired[vid]) if (w.type == t) return &w;
+        return nullptr;
+    };
+    std::map<unsigned short, bool> wiredUsed;
 
     for (auto& f : ifaces) {
         // 1) Vendor receiver with a status block (GearHub family: Ajazz, Hator, Attack Shark, ...)
@@ -85,6 +114,7 @@ void PollDongles(std::vector<Device>& out) {
             if (seen[base]) continue;
             const DongleSpec* s = FindSpec(f.vid, f.pid, custom);
             bool gearhub = IsGearHub(f.vid) || (s && s->battByte < 0);
+            if (gearhub && !IsReceiver(f, custom)) continue;   // a wired keyboard / mouse itself, not a receiver
             HANDLE h = OpenHidRW(f.path, false);
             if (h == INVALID_HANDLE_VALUE) continue;
             std::vector<unsigned char> buf(f.featLen, 0);
@@ -117,6 +147,8 @@ void PollDongles(std::vector<Device>& out) {
                     d.online = MsSinceUse(d.type) < 120000;
                     d.idle = false;
                     d.charging = false;
+                    d.wired = false;
+                    if (wiredOf(f.vid, d.type)) { d.online = true; d.wired = true; wiredUsed[f.vid] = true; }
                     out.push_back(d);
                     any = true;
                 }
@@ -159,16 +191,24 @@ void PollDongles(std::vector<Device>& out) {
                     // Decided once when the link drops and kept until it comes back. Measured on real
                     // hardware: an Ajazz AJ159 falls asleep ~20 s after the last move, and the poll sees
                     // it up to one interval later, so 15 s of idle can only be sleep.
-                    static std::map<std::string, int> linkState;   // 0 online, 1 asleep, 2 off
+                    static std::map<std::string, int> linkState;   // 0 online, 1 asleep, 2 off, 3 on the cable
                     int& stt = linkState[d.id];
                     int prev = stt;
                     if (sl.off == 0) stt = 0;
+                    else if (prev == 3) stt = 2;   // just unplugged from the cable: no radio link yet
                     else if (stt == 0) stt = MsSinceUse(sl.type) >= 15000 ? 1 : 2;
                     if (stt != prev)
-                        DbgLog("dongle %s link=%s idle_ms=%lu", d.id.c_str(), stt == 0 ? "ok" : stt == 1 ? "asleep" : "off",
+                        DbgLog("dongle %s link=%s idle_ms=%lu", d.id.c_str(), stt == 0 ? "ok" : stt == 1 ? "asleep" : stt == 2 ? "off" : "cable",
                                (unsigned long)MsSinceUse(sl.type));
                     d.online = stt != 2;
                     d.idle = stt == 1;
+                    if (wiredOf(f.vid, sl.type)) {   // on the cable: the radio link is down on purpose
+                        stt = 3;
+                        d.online = true;
+                        d.idle = false;
+                        d.wired = true;
+                        wiredUsed[f.vid] = true;
+                    }
                     g_gearLast[d.id] = d;
                     out.push_back(d);
                 }
@@ -220,6 +260,22 @@ void PollDongles(std::vector<Device>& out) {
                 HidD_FreePreparsedData(pp);
             }
             CloseHandle(h);
+        }
+    }
+
+    // wired devices without their receiver plugged in
+    for (auto& kv : wired) {
+        if (wiredUsed[kv.first]) continue;
+        for (auto& w : kv.second) {
+            Device d;
+            d.id = "wired:" + HexId(kv.first) + ":" + HexId(w.pid);
+            d.name = w.name.empty() ? std::wstring(w.type == DevType::Keyboard ? L"Keyboard" : L"Mouse") : w.name;
+            d.type = w.type;
+            d.source = "dongle";
+            d.battery = -1;
+            d.online = true;
+            d.wired = true;
+            out.push_back(d);
         }
     }
 }
