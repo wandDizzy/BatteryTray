@@ -1,0 +1,30 @@
+name: build
+
+on:
+  push:
+  pull_request:
+  release:
+    types: [published]
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Configure
+        run: cmake -S . -B build -A x64
+      - name: Build
+        run: cmake --build build --config Release
+      - uses: actions/upload-artifact@v4
+        with:
+          name: BatteryTray
+          path: |
+            build/Release/BatteryTray.exe
+            build/Release/hidprobe.exe
+      - name: Attach to release
+        if: github.event_name == 'release'
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            build/Release/BatteryTray.exe
+            build/Release/hidprobe.exe

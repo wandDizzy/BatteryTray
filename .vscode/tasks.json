@@ -1,0 +1,28 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Build (Visual Studio Build Tools)",
+      "type": "shell",
+      "command": "cmake -S . -B build -A x64; cmake --build build --config Release; Copy-Item build/Release/BatteryTray.exe . -Force",
+      "options": { "shell": { "executable": "powershell.exe" } },
+      "group": { "kind": "build", "isDefault": true },
+      "problemMatcher": ["$msCompile"]
+    },
+    {
+      "label": "Build (MSYS2 MinGW)",
+      "type": "shell",
+      "command": "cmake -S . -B build-mingw -G Ninja -DCMAKE_BUILD_TYPE=Release; cmake --build build-mingw; Copy-Item build-mingw/BatteryTray.exe . -Force",
+      "options": { "shell": { "executable": "powershell.exe" } },
+      "group": "build",
+      "problemMatcher": ["$gcc"]
+    },
+    {
+      "label": "Run BatteryTray",
+      "type": "shell",
+      "command": "Stop-Process -Name BatteryTray -ErrorAction SilentlyContinue; Start-Process ./BatteryTray.exe",
+      "options": { "shell": { "executable": "powershell.exe" } },
+      "problemMatcher": []
+    }
+  ]
+}

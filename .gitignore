@@ -1,0 +1,8 @@
+build/
+out/
+.vs/
+*.exe
+*.log
+*.debug
+config.json
+!docs/*.json
