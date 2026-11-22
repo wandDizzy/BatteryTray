@@ -104,6 +104,7 @@ const Entry kTable[] = {
     {"ov_key", L"Hotkey", L"Гаряча клавіша", L"Горячая клавиша"},
     {"ov_key_note", L"Shift+Tab works only while a fullscreen game is in front and still reaches the game", L"Shift+Tab працює лише коли попереду гра на весь екран і далі доходить до гри", L"Shift+Tab работает только когда впереди игра на весь экран и по-прежнему доходит до игры"},
     {"no_level", L"Battery level not reported", L"Рівень заряду не повідомляється", L"Уровень заряда не сообщается"},
+    {"no_level_hint", L"This device doesn't send its charge to Windows", L"Цей пристрій не передає заряд у Windows", L"Это устройство не передаёт заряд в Windows"},
     {"ov_mode", L"When to show", L"Коли показувати", L"Когда показывать"},
     {"ov_always", L"Always", L"Завжди", L"Всегда"},
     {"ov_low", L"Low battery", L"Низький заряд", L"Низкий заряд"},

@@ -77,15 +77,22 @@ float DevicePanel(Ui& ui, UiWindow* host, const Rect& r, const Device& dev, bool
     y += 68;
 
     // ---------------------------------------------------------- battery
-    std::wstring pct = dev.battery >= 0 ? std::to_wstring(dev.battery) : L"—";
-    float pw = ui.Measure(pct, 40.f, 700);
-    ui.Text(pct, Rect(x, y, pw + 4, 48), 40.f, th.text, 700);
-    if (dev.battery >= 0) ui.Text(L"%", Rect(x + pw + 2, y + 8, 30, 36), 20.f, th.text2, 600);
-    if (dev.online && dev.charging) ui.Icon(Ico::Bolt, Rect(x + pw + 26, y + 6, 28, 40), 20, th.accent);
-    std::wstring note = dev.idle || !dev.online ? std::wstring(T("last_known")) : L"";
-    ui.Text(note, Rect(x + w * 0.45f, y, w * 0.55f, 48), 12.f, th.text3, 400, ALIGN_RIGHT);
-    y += 54;
-    ui.Bar(ID("bar"), Rect(x, y, w, 8), dev.battery >= 0 ? dev.battery / 100.f : 0.f, lc);
+    if (dev.battery >= 0) {
+        std::wstring pct = std::to_wstring(dev.battery);
+        float pw = ui.Measure(pct, 40.f, 700);
+        ui.Text(pct, Rect(x, y, pw + 4, 48), 40.f, th.text, 700);
+        ui.Text(L"%", Rect(x + pw + 2, y + 8, 30, 36), 20.f, th.text2, 600);
+        if (dev.online && dev.charging) ui.Icon(Ico::Bolt, Rect(x + pw + 26, y + 6, 28, 40), 20, th.accent);
+        std::wstring note = dev.idle || !dev.online ? std::wstring(T("last_known")) : L"";
+        ui.Text(note, Rect(x + w * 0.45f, y, w * 0.55f, 48), 12.f, th.text3, 400, ALIGN_RIGHT);
+        y += 54;
+        ui.Bar(ID("bar"), Rect(x, y, w, 8), dev.battery / 100.f, lc);
+    } else {
+        // no level: a calm message instead of an empty dash and bar
+        ui.Text(T("no_level"), Rect(x, y + 6, w, 24), 15.f, th.text, 600);
+        ui.Text(T("no_level_hint"), Rect(x, y + 32, w, 20), 12.f, th.text3);
+        y += 54;
+    }
     y += 26;
     ui.Line(x, y, x + w, y, th.divider);
     y += 14;
@@ -180,9 +187,11 @@ float DevicePanel(Ui& ui, UiWindow* host, const Rect& r, const Device& dev, bool
     // ---------------------------------------------------------- position / all settings
     if (ui.IconButton(ID("left"), Rect(x, y, 36, 32), Ico::Left, false, 12.f)) AppMoveDevice(id, -1);
     if (ui.IconButton(ID("right"), Rect(x + 42, y, 36, 32), Ico::Right, false, 12.f)) AppMoveDevice(id, +1);
-    ui.Text(T("dev_position"), Rect(x + 86, y, w * 0.45f, 32), 12.f, th.text3);
+    float bwid = showAllSettings ? ui.Measure(T("dev_all_settings"), 13.f) + 52 : 0.f;
+    float posW = (x + w - bwid - 10) - (x + 86);
+    if (ui.Measure(T("dev_position"), 12.f) <= posW)   // hide the label when it doesn't fit
+        ui.Text(T("dev_position"), Rect(x + 86, y, posW, 32), 12.f, th.text3);
     if (showAllSettings) {
-        float bwid = ui.Measure(T("dev_all_settings"), 13.f) + 52;
         if (ui.Button(ID("all"), Rect(x + w - bwid, y, bwid, 32), T("dev_all_settings"), false, Ico::Settings))
             ui.Defer([]() { AppOpenSettings(0); });
     }
