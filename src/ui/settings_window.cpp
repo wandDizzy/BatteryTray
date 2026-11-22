@@ -1,5 +1,6 @@
 #include "settings_window.h"
 #include "devpanel.h"
+#include "overlay.h"
 #include "../app.h"
 #include "../i18n/i18n.h"
 #include <shellapi.h>
@@ -277,6 +278,12 @@ public:
             Rect ctl = Row(ui, y, x, w, Ico::Gamepad, T("ov_enable"), T("ov_desc"));
             bool v = c.overlay.enabled;
             if (ui.Toggle(Ui::Id("ov_on"), Rect(ctl.r() - 40, ctl.y, 40, ctl.h), v)) { c.overlay.enabled = v; AppApply(); }
+        }
+        {
+            Rect ctl = Row(ui, y, x, w, 0xE768, T("ov_preview"), T("ov_preview_note"));
+            float bw = ui.Measure(T("ov_preview_btn"), 13.f) + 52;
+            if (ui.Button(Ui::Id("ov_prev"), Rect(ctl.r() - bw, ctl.cy() - 16, bw, 32), T("ov_preview_btn"), true, 0xE768))
+                ui.Defer([]() { OverlayPreview(); });
         }
         float oa = ui.Anim(Ui::Id("ov_rows"), c.overlay.enabled ? 1.f : 0.35f, 14.f);
         float sa = ui.alpha;

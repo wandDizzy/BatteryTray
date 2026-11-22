@@ -1,5 +1,6 @@
 #pragma once
-// Game overlay: a click-through, always-on-top panel in a screen corner.
+// Game overlay: a click-through, always-on-top panel. By hotkey it opens big at the top center
+// (like the Steam / Discord overlay); "always" / "low battery" keep a small widget in a corner.
 // Works over windowed and borderless-fullscreen games (not exclusive fullscreen).
 #include "../config/config.h"
 #include <string>
@@ -20,5 +21,6 @@ struct OverlayItem {
 };
 
 void OverlayUpdate(const std::vector<OverlayItem>& items, const Config& c);
-void OverlayToggle();      // Ctrl+Shift+B
+void OverlayToggle();      // the overlay hotkey
+void OverlayPreview();     // show it for 5 s (settings button), even when it is off
 void OverlayDestroy();
