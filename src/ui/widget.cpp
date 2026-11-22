@@ -19,6 +19,7 @@ std::vector<float> g_hoverAnim;
 int g_hover = -1, g_press = -1;
 bool g_tracking = false;
 bool g_hoverOn = true, g_animOn = true;
+bool g_sleepy = false;   // some device is asleep: the "zzz" animation is running
 int g_toolCount = 0;
 int g_width = 0, g_height = 0;
 DWORD g_lastFrame = 0;
@@ -102,6 +103,8 @@ bool Render() {   // returns true while hover animations are still running
     HFONT fIcon = IconFont(S(16));
     HFONT fBolt = IconFont(S(10));
     HFONT fText = TextFont(S(13));
+    HFONT fZ[3] = {TextFont(S(7)), TextFont(S(9)), TextFont(S(11))};
+    g_sleepy = false;
     bool light = TaskbarLightMode();
     COLORREF fg = light ? RGB(25, 25, 25) : RGB(245, 245, 245);
 
@@ -142,17 +145,33 @@ bool Render() {   // returns true while hover animations are still running
             p.Round(x, (H - bh) / 2, widths[i], bh, S(5), light ? RGB(0, 0, 0) : RGB(255, 255, 255),
                     (light ? 0.06f : 0.085f) * hv);
         }
-        float a = it.dim ? 0.6f : 1.f;
+        float a = it.dim ? 0.8f : 1.f;   // asleep: slightly faded, amber-tinted, with a "zzz"
         int cx = x + pad;
         wchar_t g[2] = {it.glyph, 0};
         COLORREF gray = light ? RGB(120, 120, 126) : RGB(150, 150, 156);
-        p.Text(g, fIcon, cx, (H - hIcon) / 2, it.offline ? gray : it.customGlyphColor ? it.glyphColor : fg, a);
+        COLORREF gc = it.offline ? gray : it.customGlyphColor ? it.glyphColor : fg;
+        if (it.dim) gc = SleepTint(gc);
+        p.Text(g, fIcon, cx, (H - hIcon) / 2, gc, a);
         int iw = p.Measure(g, fIcon).cx;
         if (it.strike) {
             // crossed-out icon: a red slash with a thin outline in the taskbar color
             int x0 = cx + S(1), y0 = (H - hIcon) / 2 + S(2), x1 = cx + iw - S(1), y1 = (H + hIcon) / 2 - S(2);
             p.Slash(x0, y1, x1, y0, S(4), light ? RGB(243, 243, 243) : RGB(32, 32, 32), 1.f);
             p.Slash(x0, y1, x1, y0, S(2), RGB(232, 72, 77), 1.f);
+        } else if (it.dim) {
+            // asleep: "z z z" floating up from the icon's top-right corner, like a sleeping cartoon
+            g_sleepy = true;
+            COLORREF zc = light ? RGB(200, 140, 20) : RGB(242, 194, 48);
+            float ph = g_animOn ? (GetTickCount() % 2400) / 2400.f : 0.f;
+            for (int k = 0; k < 3; k++) {
+                float t = g_animOn ? std::fmod(ph + k / 3.f, 1.f) : 0.15f + k * 0.3f;
+                HFONT fz = t < 0.34f ? fZ[0] : t < 0.67f ? fZ[1] : fZ[2];
+                int zx = cx + iw - S(4) + (int)(t * S(8));
+                int zy = (H - hIcon) / 2 + S(2) - (int)(t * S(12));
+                if (zy < 0) zy = 0;
+                float za = g_animOn ? std::sin(t * 3.14159f) : 0.9f;
+                p.Text(L"z", fz, zx, zy, zc, za);
+            }
         } else if (it.offline) {
             // small red "disconnected" badge at the icon's bottom-right corner
             int r = S(3), bx = cx + iw - r - S(1), by = (H + hIcon) / 2 - r * 2 - S(2);
@@ -160,7 +179,7 @@ bool Render() {   // returns true while hover animations are still running
             p.Round(bx, by, r * 2, r * 2, r, RGB(232, 72, 77), 1.f);
         }
         cx += iw + gap;
-        p.Text(it.text.c_str(), fText, cx, (H - hText) / 2 - S(1), it.textColor, a);
+        p.Text(it.text.c_str(), fText, cx, (H - hText) / 2 - S(1), it.dim ? SleepTint(it.textColor, 0.35f) : it.textColor, a);
         cx += p.Measure(it.text.c_str(), fText).cx;
         if (it.charging) p.Text(L"\xE945", fBolt, cx + S(2), (H - hBolt) / 2, it.textColor);
         g_rects.push_back(RECT{x, 0, x + widths[i], H});
@@ -170,12 +189,16 @@ bool Render() {   // returns true while hover animations are still running
     DeleteObject(fIcon);
     DeleteObject(fBolt);
     DeleteObject(fText);
+    for (HFONT f : fZ) DeleteObject(f);
     return moving;
 }
 
 void Animate() {
     if (Render()) SetTimer(g_w, 2, 15, nullptr);
     else KillTimer(g_w, 2);
+    // the "zzz" of sleeping devices: ~12 frames per second, only while something sleeps
+    if (g_sleepy && g_animOn) SetTimer(g_w, 3, 80, nullptr);
+    else KillTimer(g_w, 3);
 }
 
 int HitItem(int x, int y) {
@@ -222,6 +245,7 @@ LRESULT CALLBACK Proc(HWND h, UINT msg, WPARAM wp, LPARAM lp) {
         return 0;
     case WM_TIMER:
         if (wp == 2) { Animate(); return 0; }
+        if (wp == 3) { Render(); return 0; }
         if (g_child && !IsWindow(GetParent(h))) { PostMessageW(g_owner, WM_WIDGET_REATTACH, 0, 0); return 0; }
         Place();
         return 0;

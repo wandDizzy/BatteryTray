@@ -30,6 +30,13 @@ inline HFONT MakeFont(const wchar_t* face, int px, int weight, bool* ok = nullpt
     return f;
 }
 
+// asleep look: the usual color pulled towards amber (the common "idle" color)
+inline COLORREF SleepTint(COLORREF c, float k = 0.55f) {
+    const int r = 242, g = 194, b = 48;
+    return RGB((int)(GetRValue(c) + (r - GetRValue(c)) * k), (int)(GetGValue(c) + (g - GetGValue(c)) * k),
+               (int)(GetBValue(c) + (b - GetBValue(c)) * k));
+}
+
 inline HFONT IconFont(int px) {
     bool ok = false;
     HFONT f = MakeFont(L"Segoe Fluent Icons", px, FW_NORMAL, &ok);

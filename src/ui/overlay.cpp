@@ -67,13 +67,18 @@ void Render() {
     for (size_t i = 0; i < items.size(); i++) {
         const OverlayItem& it = items[i];
         int y = pad + rowH * (int)i;
-        float a = it.dim ? 0.6f : 1.f;
+        float a = it.dim ? 0.8f : 1.f;
         int x = pad;
         wchar_t g[2] = {it.glyph, 0};
         int iy = y + (rowH - S(6) - hIcon) / 2;
-        p.Text(g, fIcon, x, iy, it.offline ? RGB(150, 150, 156) : it.customGlyphColor ? it.glyphColor : RGB(240, 240, 240), a);
+        COLORREF gc = it.offline ? RGB(150, 150, 156) : it.customGlyphColor ? it.glyphColor : RGB(240, 240, 240);
+        if (it.dim) gc = SleepTint(gc);
+        p.Text(g, fIcon, x, iy, gc, a);
         if (it.strike) {
             p.Slash(x + S(1), iy + hIcon - S(2), x + iconW - S(1), iy + S(2), S(2), RGB(232, 72, 77), 1.f);
+        } else if (it.dim) {
+            int mw = m.Measure(L"\xE708", fBolt).cx;
+            p.Text(L"\xE708", fBolt, x + iconW - mw, iy + hIcon - hBolt, RGB(242, 194, 48));
         } else if (it.offline) {
             int r = S(3), bx = x + iconW - r - S(1), by = iy + hIcon - r * 2 - S(2);
             p.Round(bx, by, r * 2, r * 2, r, RGB(232, 72, 77), 1.f);
