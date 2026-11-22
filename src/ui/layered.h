@@ -8,6 +8,8 @@
 #endif
 #include <windows.h>
 #include <cmath>
+#include <cstdlib>
+#include <algorithm>
 #include <cstring>
 #include <vector>
 
@@ -104,6 +106,16 @@ struct Painter {
         TextOutW(dc, x, y, s, (int)wcslen(s));
         Composite(c, alpha);
     }
+    // thick straight line made of small round dots (for the "disconnected" slash)
+    void Slash(int x0, int y0, int x1, int y1, int th, COLORREF c, float alpha) {
+        int dx = x1 - x0, dy = y1 - y0;
+        int n = (std::max)(std::abs(dx), std::abs(dy));
+        for (int i = 0; i <= n; i++) {
+            int x = x0 + dx * i / (n ? n : 1), y = y0 + dy * i / (n ? n : 1);
+            Round(x - th / 2, y - th / 2, th, th, th / 2, c, alpha);
+        }
+    }
+
     void Round(int x, int y, int rw, int rh, int rad, COLORREF c, float alpha) {
         if (alpha <= 0.003f) return;
         // supersample the rounded rectangle 4x for smooth corners

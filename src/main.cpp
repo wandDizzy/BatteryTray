@@ -158,6 +158,9 @@ void AppMoveDevice(const std::string& id, int dir) {
 
 // ===================================================================== tray icons
 
+// gray text for a disconnected device, readable on both light and dark taskbars
+static COLORREF OfflineTextColor() { return TaskbarLightMode() ? RGB(110, 110, 116) : RGB(150, 150, 156); }
+
 static std::wstring Tip(const Device& d) {
     std::wstring t = AppDisplayName(d);
     wchar_t b[64];
@@ -262,7 +265,11 @@ static void UpdateUi() {
         w.text = d.battery >= 0 ? std::to_wstring(d.battery) + (g_cfg.widgetPercent ? L"%" : L"") : L"?";
         w.textColor = LevelColor(d, g_cfg);
         w.charging = d.online && d.charging;
-        w.dim = !d.online || d.idle;
+        w.offline = !d.online;
+        w.dim = d.online && d.idle;
+        w.strike = w.offline && g_cfg.offlineStyle == "strike";
+        if (w.offline) w.textColor = OfflineTextColor();
+        if (w.strike) w.text = T("off_short");
         w.tip = Tip(d);
         items.push_back(w);
 
@@ -275,6 +282,9 @@ static void UpdateUi() {
         o.color = w.textColor;
         o.charging = w.charging;
         o.dim = w.dim;
+        o.offline = w.offline;
+        o.strike = w.strike;
+        if (o.offline) o.color = RGB(150, 150, 156);
         o.low = d.battery >= 0 && d.battery <= thr && !d.charging;
         overlay.push_back(o);
     }
@@ -380,10 +390,11 @@ static LRESULT CALLBACK WndProc(HWND h, UINT msg, WPARAM wp, LPARAM lp) {
         SetTimer(h, 1, 1500, nullptr);
         return TRUE;
     case WM_TIMER:
+        if (wp == 4) { ActivityTick(); return 0; }   // asleep vs switched off
         if (wp == 3) {   // Shift+Tab watcher
             bool down = (GetAsyncKeyState(VK_TAB) & 0x8000) && (GetAsyncKeyState(VK_SHIFT) & 0x8000) &&
                         !(GetAsyncKeyState(VK_CONTROL) & 0x8000) && !(GetAsyncKeyState(VK_MENU) & 0x8000);
-            if (down && !g_tabWasDown && FullscreenAppInFront()) HotkeyPressed();
+            if (down && !g_tabWasDown && (!g_cfg.overlay.gamesOnly || FullscreenAppInFront())) HotkeyPressed();
             g_tabWasDown = down;
             return 0;
         }
@@ -421,13 +432,34 @@ static LRESULT CALLBACK WndProc(HWND h, UINT msg, WPARAM wp, LPARAM lp) {
     return DefWindowProcW(h, msg, wp, lp);
 }
 
+// true when the window belongs to a process started from this very exe file
+static bool SameExe(HWND w) {
+    DWORD pid = 0;
+    GetWindowThreadProcessId(w, &pid);
+    HANDLE p = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, FALSE, pid);
+    if (!p) return true;
+    wchar_t other[MAX_PATH] = L"", me[MAX_PATH] = L"";
+    DWORD n = MAX_PATH;
+    BOOL ok = QueryFullProcessImageNameW(p, 0, other, &n);
+    CloseHandle(p);
+    GetModuleFileNameW(nullptr, me, MAX_PATH);
+    return !ok || _wcsicmp(other, me) == 0;
+}
+
 int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, LPWSTR, int) {
     HANDLE once = CreateMutexW(nullptr, TRUE, L"BatteryTray.SingleInstance");
     if (GetLastError() == ERROR_ALREADY_EXISTS) {
-        // already running: open its settings instead of starting twice
         HWND other = FindWindowW(kWndClass, nullptr);
-        if (other) PostMessageW(other, WM_TRAY, 0, MAKELPARAM(WM_LBUTTONUP, 0));
-        return 0;
+        if (other && !SameExe(other)) {
+            // a different copy (e.g. a newer version) is started: it replaces the running one
+            PostMessageW(other, WM_CLOSE, 0, 0);
+            DWORD r = WaitForSingleObject(once, 8000);
+            if (r != WAIT_OBJECT_0 && r != WAIT_ABANDONED) return 0;
+        } else {
+            // the same copy again: open its settings instead of starting twice
+            if (other) PostMessageW(other, WM_TRAY, 0, MAKELPARAM(WM_LBUTTONUP, 0));
+            return 0;
+        }
     }
 
     SetProcessDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2);
@@ -448,6 +480,7 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, LPWSTR, int) {
     wc.lpszClassName = kWndClass;
     RegisterClassW(&wc);
     g_wnd = CreateWindowExW(0, kWndClass, L"BatteryTray", 0, 0, 0, 0, 0, nullptr, nullptr, inst, nullptr);
+    SetTimer(g_wnd, 4, 1000, nullptr);
     g_taskbarCreated = RegisterWindowMessageW(L"TaskbarCreated");
     ApplyHotkey();   // overlay on / off
     ChangeWindowMessageFilterEx(g_wnd, g_taskbarCreated, MSGFLT_ALLOW, nullptr);

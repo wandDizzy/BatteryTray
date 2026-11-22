@@ -14,6 +14,8 @@ struct OverlayItem {
     COLORREF     color = 0;
     bool         charging = false;
     bool         dim = false;
+    bool         offline = false;
+    bool         strike = false;
     bool         low = false;
 };
 

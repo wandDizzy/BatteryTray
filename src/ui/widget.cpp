@@ -145,8 +145,21 @@ bool Render() {   // returns true while hover animations are still running
         float a = it.dim ? 0.6f : 1.f;
         int cx = x + pad;
         wchar_t g[2] = {it.glyph, 0};
-        p.Text(g, fIcon, cx, (H - hIcon) / 2, it.customGlyphColor ? it.glyphColor : fg, a);
-        cx += p.Measure(g, fIcon).cx + gap;
+        COLORREF gray = light ? RGB(120, 120, 126) : RGB(150, 150, 156);
+        p.Text(g, fIcon, cx, (H - hIcon) / 2, it.offline ? gray : it.customGlyphColor ? it.glyphColor : fg, a);
+        int iw = p.Measure(g, fIcon).cx;
+        if (it.strike) {
+            // crossed-out icon: a red slash with a thin outline in the taskbar color
+            int x0 = cx + S(1), y0 = (H - hIcon) / 2 + S(2), x1 = cx + iw - S(1), y1 = (H + hIcon) / 2 - S(2);
+            p.Slash(x0, y1, x1, y0, S(4), light ? RGB(243, 243, 243) : RGB(32, 32, 32), 1.f);
+            p.Slash(x0, y1, x1, y0, S(2), RGB(232, 72, 77), 1.f);
+        } else if (it.offline) {
+            // small red "disconnected" badge at the icon's bottom-right corner
+            int r = S(3), bx = cx + iw - r - S(1), by = (H + hIcon) / 2 - r * 2 - S(2);
+            p.Round(bx - S(1), by - S(1), r * 2 + S(2), r * 2 + S(2), r + S(1), light ? RGB(243, 243, 243) : RGB(32, 32, 32), 1.f);
+            p.Round(bx, by, r * 2, r * 2, r, RGB(232, 72, 77), 1.f);
+        }
+        cx += iw + gap;
         p.Text(it.text.c_str(), fText, cx, (H - hText) / 2 - S(1), it.textColor, a);
         cx += p.Measure(it.text.c_str(), fText).cx;
         if (it.charging) p.Text(L"\xE945", fBolt, cx + S(2), (H - hBolt) / 2, it.textColor);

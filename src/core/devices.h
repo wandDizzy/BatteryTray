@@ -39,3 +39,7 @@ void PollHeadsets(std::vector<Device>& out);   // SteelSeries, Corsair, HyperX h
 void PollEvision(std::vector<Device>& out);    // keyboards on the Evision receiver (Epomaker, VGN, VXE ...)
 void PollAsus(std::vector<Device>& out);       // ASUS ROG / TUF mice and keyboards
 void PollGamepads(std::vector<Device>& out);   // XInput (Xbox-compatible) and Sony DualShock 4 / DualSense
+
+// activity.cpp: tells a sleeping device from a switched-off one
+void  ActivityTick();              // call about once a second
+unsigned long MsSinceUse(DevType t);       // ms since the user last used a mouse / keyboard

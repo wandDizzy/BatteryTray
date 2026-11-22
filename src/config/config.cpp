@@ -101,6 +101,7 @@ void LoadConfig(Config& c) {
     c.midThreshold = Clamp(j["midThreshold"].asInt(c.midThreshold), 1, 99);
     c.notifyLow = j["notifyLow"].asBool(c.notifyLow);
     c.showOffline = j["showOffline"].asBool(c.showOffline);
+    c.offlineStyle = j["offlineStyle"].asStr(c.offlineStyle) == "dim" ? "dim" : "strike";
     c.debugLog = j["debugLog"].asBool(c.debugLog);
     c.language = FromUtf8(j["language"].asStr("auto"));
 
@@ -130,6 +131,7 @@ void LoadConfig(Config& c) {
     c.overlay.scale = Clamp(ov["scale"].asInt(c.overlay.scale), 60, 200);
     c.overlay.showNames = ov["showNames"].asBool(c.overlay.showNames);
     c.overlay.hotkey = ov["hotkey"].asStr(c.overlay.hotkey);
+    c.overlay.gamesOnly = ov["gamesOnly"].asBool(c.overlay.gamesOnly);
 
     const Json& col = j["colors"];
     ReadColor(col, "high", c.colHigh);
@@ -178,6 +180,7 @@ void SaveConfig(const Config& c) {
     j["midThreshold"] = c.midThreshold;
     j["notifyLow"] = c.notifyLow;
     j["showOffline"] = c.showOffline;
+    j["offlineStyle"] = c.offlineStyle;
     j["language"] = ToUtf8(c.language);
     j["display"] = c.displayMode == MODE_TRAY ? "tray" : c.displayMode == MODE_BOTH ? "both" : "widget";
     j["trayStyle"] = c.iconStyle == STYLE_BADGE ? "badge" : c.iconStyle == STYLE_BATTERY ? "battery" : "number";
@@ -204,6 +207,7 @@ void SaveConfig(const Config& c) {
     ov["scale"] = c.overlay.scale;
     ov["showNames"] = c.overlay.showNames;
     ov["hotkey"] = c.overlay.hotkey;
+    ov["gamesOnly"] = c.overlay.gamesOnly;
 
     Json& col = j["colors"];
     col["high"] = ColorToHex(c.colHigh);

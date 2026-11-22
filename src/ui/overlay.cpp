@@ -1,5 +1,6 @@
 #include "overlay.h"
 #include "layered.h"
+#include "../i18n/i18n.h"
 #include <cmath>
 
 using namespace lay;
@@ -69,7 +70,14 @@ void Render() {
         float a = it.dim ? 0.6f : 1.f;
         int x = pad;
         wchar_t g[2] = {it.glyph, 0};
-        p.Text(g, fIcon, x, y + (rowH - S(6) - hIcon) / 2, it.customGlyphColor ? it.glyphColor : RGB(240, 240, 240), a);
+        int iy = y + (rowH - S(6) - hIcon) / 2;
+        p.Text(g, fIcon, x, iy, it.offline ? RGB(150, 150, 156) : it.customGlyphColor ? it.glyphColor : RGB(240, 240, 240), a);
+        if (it.strike) {
+            p.Slash(x + S(1), iy + hIcon - S(2), x + iconW - S(1), iy + S(2), S(2), RGB(232, 72, 77), 1.f);
+        } else if (it.offline) {
+            int r = S(3), bx = x + iconW - r - S(1), by = iy + hIcon - r * 2 - S(2);
+            p.Round(bx, by, r * 2, r * 2, r, RGB(232, 72, 77), 1.f);
+        }
         x += iconW + gap;
         if (nameW) {
             // clip long names
@@ -78,7 +86,7 @@ void Render() {
             p.Text(n.c_str(), fName, x, y + (rowH - S(6) - hName) / 2, RGB(225, 225, 230), a);
             x += nameW + gap;
         }
-        std::wstring pct = it.battery >= 0 ? std::to_wstring(it.battery) + L"%" : L"?";
+        std::wstring pct = it.strike ? std::wstring(T("off_short")) : it.battery >= 0 ? std::to_wstring(it.battery) + L"%" : L"?";
         int tw = m.Measure(pct.c_str(), fPct).cx;
         int px = W - pad - tw;
         p.Text(pct.c_str(), fPct, px, y + (rowH - S(6) - hPct) / 2, it.color, a);
@@ -86,7 +94,7 @@ void Render() {
         // level bar under the row
         int bx = pad + iconW + gap, bw = W - pad - bx, by = y + rowH - S(7);
         p.Round(bx, by, bw, S(3), S(1), RGB(255, 255, 255), 0.12f);
-        if (it.battery > 0) p.Round(bx, by, (std::max)(S(3), bw * it.battery / 100), S(3), S(1), it.color, 0.9f * a);
+        if (it.battery > 0 && !it.strike) p.Round(bx, by, (std::max)(S(3), bw * it.battery / 100), S(3), S(1), it.color, 0.9f * a);
     }
     DeleteObject(fIcon);
     DeleteObject(fBolt);

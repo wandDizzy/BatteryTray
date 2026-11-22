@@ -239,6 +239,16 @@ public:
             if (ui.Toggle(Ui::Id("hover"), Rect(ctl.r() - 40, ctl.y, 40, ctl.h), v)) { c.widgetHover = v; AppApply(); }
         }
         {
+            Rect ctl = Row(ui, y, x, w, 0xE703, T("ap_offline"));
+            int sel = !c.showOffline ? 2 : c.offlineStyle == "dim" ? 1 : 0;
+            if (ui.Segmented(Ui::Id("seg_off"), Rect(ctl.r() - 380, ctl.cy() - 16, 380, 32),
+                             {T("off_strike"), T("off_dim"), T("off_hide")}, sel)) {
+                c.showOffline = sel != 2;
+                if (sel != 2) c.offlineStyle = sel == 1 ? "dim" : "strike";
+                AppApply();
+            }
+        }
+        {
             Rect card(x, y, w, 70);
             ui.Card(0, card);
             ui.Icon(Ico::Color, Rect(x + 16, y, 24, 70), 17, th.text);
@@ -291,6 +301,11 @@ public:
                 c.overlay.hotkey = keys[sel];
                 AppApply();
             }
+        }
+        if (c.overlay.hotkey == "shift+tab") {
+            Rect ctl = Row(ui, y, x, w, Ico::Gamepad, T("ov_games_only"), T("ov_games_only_note"));
+            bool v = c.overlay.gamesOnly;
+            if (ui.Toggle(Ui::Id("ov_games"), Rect(ctl.r() - 40, ctl.y, 40, ctl.h), v)) { c.overlay.gamesOnly = v; AppApply(); }
         }
         {
             Rect ctl = Row(ui, y, x, w, 0xE7F4, T("ov_corner"));

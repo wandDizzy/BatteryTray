@@ -19,7 +19,8 @@ const std::vector<DongleSpec>& BuiltinDongles() {
         // GearHub receivers (status via command F7, see below). Verified on real hardware:
         //   Ajazz mouse:     00 00 00 64 01 00 ..  -> mouse 100 %, keyboard slot empty
         //   Hator keyboard:  00 00 64 00 00 01 ..  -> keyboard 100 %, mouse slot empty
-        // The receiver keeps the last known level while the device sleeps (off flag = 1).
+        // Off flag = 1 means the receiver has no link to the device (switched off or out of range);
+        // the receiver then keeps the last known level, which we show as "not connected".
         DongleSpec a; a.vid = 0x3151; a.pid = 0x402D; a.name = L"AJAZZ AJ159 PRO"; a.type = DevType::Mouse;
         a.battByte = -1; t.push_back(a);
         DongleSpec h; h.vid = 0x379A; h.pid = 0x1807; h.name = L"HATOR Skyfall 80 Pro Wireless"; h.type = DevType::Keyboard;
@@ -121,8 +122,20 @@ void PollDongles(std::vector<Device>& out) {
                     d.type = sl.type;
                     d.source = "dongle";
                     d.battery = sl.pct;
-                    d.online = true;
-                    d.idle = sl.off != 0;
+                    // "no link": asleep if the device had been idle for a while, otherwise switched off.
+                    // Decided once when the link drops and kept until it comes back. Measured on real
+                    // hardware: an Ajazz AJ159 falls asleep ~20 s after the last move, and the poll sees
+                    // it up to one interval later, so 15 s of idle can only be sleep.
+                    static std::map<std::string, int> linkState;   // 0 online, 1 asleep, 2 off
+                    int& stt = linkState[d.id];
+                    int prev = stt;
+                    if (sl.off == 0) stt = 0;
+                    else if (stt == 0) stt = MsSinceUse(sl.type) >= 15000 ? 1 : 2;
+                    if (stt != prev)
+                        DbgLog("dongle %s link=%s idle_ms=%lu", d.id.c_str(), stt == 0 ? "ok" : stt == 1 ? "asleep" : "off",
+                               (unsigned long)MsSinceUse(sl.type));
+                    d.online = stt != 2;
+                    d.idle = stt == 1;
                     out.push_back(d);
                 }
                 continue;

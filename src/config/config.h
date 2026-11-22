@@ -42,7 +42,8 @@ struct OverlaySettings {
     int         opacity = 70;        // panel background, %
     int         scale = 100;         // %
     bool        showNames = true;
-    std::string hotkey = "shift+tab"; // shift+tab (only in fullscreen games) | ctrl+shift+b | alt+b | ctrl+alt+b
+    std::string hotkey = "shift+tab"; // shift+tab | ctrl+shift+b | alt+b | ctrl+alt+b
+    bool        gamesOnly = true;    // Shift+Tab reacts only while a fullscreen game is in front
 };
 
 struct Config {
@@ -51,6 +52,7 @@ struct Config {
     int  midThreshold = 50;
     bool notifyLow = true;
     bool showOffline = true;
+    std::string offlineStyle = "strike"; // strike (crossed icon + "off") | dim (gray, last level)
     int  iconStyle = STYLE_TEXT;        // tray icon style
     int  displayMode = MODE_WIDGET;     // taskbar widget / tray icons / both
     bool widgetPercent = true;          // "%" after the number in the widget

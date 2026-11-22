@@ -19,7 +19,9 @@ struct WidgetItem {
     std::wstring text;           // "87%"
     COLORREF     textColor = 0;
     bool         charging = false;
-    bool         dim = false;    // asleep / not connected
+    bool         dim = false;    // asleep
+    bool         offline = false; // not connected
+    bool         strike = false;  // not connected, drawn crossed out (else gray + red dot)
     std::wstring tip;
 };
 
