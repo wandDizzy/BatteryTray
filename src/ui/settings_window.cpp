@@ -259,6 +259,64 @@ public:
             }
             y += 76;
         }
+
+        // ---------------------------------------------------------- game overlay
+        y += 12;
+        Header(ui, y, x, T("ov_title"));
+        {
+            Rect ctl = Row(ui, y, x, w, Ico::Gamepad, T("ov_enable"), T("ov_desc"));
+            bool v = c.overlay.enabled;
+            if (ui.Toggle(Ui::Id("ov_on"), Rect(ctl.r() - 40, ctl.y, 40, ctl.h), v)) { c.overlay.enabled = v; AppApply(); }
+        }
+        float oa = ui.Anim(Ui::Id("ov_rows"), c.overlay.enabled ? 1.f : 0.35f, 14.f);
+        float sa = ui.alpha;
+        ui.alpha *= oa;
+        {
+            Rect ctl = Row(ui, y, x, w, 0xE916, T("ov_mode"));
+            int sel = c.overlay.mode == "low" ? 1 : c.overlay.mode == "hotkey" ? 2 : 0;
+            if (ui.Segmented(Ui::Id("ov_mode"), Rect(ctl.r() - 380, ctl.cy() - 16, 380, 32),
+                             {T("ov_always"), T("ov_low"), T("ov_hotkey")}, sel)) {
+                const char* v[] = {"always", "low", "hotkey"};
+                c.overlay.mode = v[sel];
+                AppApply();
+            }
+        }
+        {
+            Rect ctl = Row(ui, y, x, w, 0xE92E, T("ov_key"), T("ov_key_note"));
+            const char* keys[] = {"shift+tab", "ctrl+shift+b", "alt+b", "ctrl+alt+b"};
+            int sel = 0;
+            for (int i = 0; i < 4; i++) if (c.overlay.hotkey == keys[i]) sel = i;
+            if (ui.Segmented(Ui::Id("ov_key"), Rect(ctl.r() - 440, ctl.cy() - 16, 440, 32),
+                             {L"Shift+Tab", L"Ctrl+Shift+B", L"Alt+B", L"Ctrl+Alt+B"}, sel)) {
+                c.overlay.hotkey = keys[sel];
+                AppApply();
+            }
+        }
+        {
+            Rect ctl = Row(ui, y, x, w, 0xE7F4, T("ov_corner"));
+            const char* keys[] = {"top-left", "top-right", "bottom-left", "bottom-right"};
+            int sel = 1;
+            for (int i = 0; i < 4; i++) if (c.overlay.corner == keys[i]) sel = i;
+            if (ui.Segmented(Ui::Id("ov_corner"), Rect(ctl.r() - 480, ctl.cy() - 16, 480, 32),
+                             {T("corner_tl"), T("corner_tr"), T("corner_bl"), T("corner_br")}, sel)) {
+                c.overlay.corner = keys[sel];
+                AppApply();
+            }
+        }
+        auto sliderRow = [&](const wchar_t* title, wchar_t icon, int& v, int lo, int hi, int sid) {
+            Rect ctl = Row(ui, y, x, w, icon, title);
+            int t = v;
+            if (ui.Slider(sid, Rect(ctl.r() - 300, ctl.cy() - 12, 240, 24), t, lo, hi)) { v = t; AppApply(); }
+            ui.Text(std::to_wstring(v) + L"%", Rect(ctl.r() - 50, ctl.y, 50, ctl.h), 13.f, th.text, 600, ALIGN_RIGHT);
+        };
+        sliderRow(T("ov_opacity"), Ico::Picture, c.overlay.opacity, 0, 100, Ui::Id("ov_op"));
+        sliderRow(T("ov_size"), 0xE740, c.overlay.scale, 60, 200, Ui::Id("ov_sz"));
+        {
+            Rect ctl = Row(ui, y, x, w, 0xE8EC, T("ov_names"));
+            bool v = c.overlay.showNames;
+            if (ui.Toggle(Ui::Id("ov_names"), Rect(ctl.r() - 40, ctl.y, 40, ctl.h), v)) { c.overlay.showNames = v; AppApply(); }
+        }
+        ui.alpha = sa;
     }
 
     void PageGeneral(Ui& ui, float x, float& y, float w) {
@@ -296,7 +354,10 @@ public:
         };
         int r;
         if ((r = toggleRow(T("gen_notify"), Ico::Bell, c.notifyLow, Ui::Id("notify"))) >= 0) { c.notifyLow = r; AppApply(); }
-        if ((r = toggleRow(T("gen_autostart"), 0xE7E8, GetAutostart(), Ui::Id("auto"))) >= 0) SetAutostart(r == 1);
+        if ((r = toggleRow(T("gen_autostart"), 0xE7E8, GetAutostart(), Ui::Id("auto"))) >= 0) {
+            bool on = r == 1;
+            ui.Defer([on]() { SetAutostart(on); });
+        }
         if ((r = toggleRow(T("gen_offline"), Ico::Eye, c.showOffline, Ui::Id("offline"))) >= 0) { c.showOffline = r; AppApply(); }
         {
             Rect ctl = Row(ui, y, x, w, Ico::Globe, T("gen_language"));
@@ -332,12 +393,13 @@ public:
             bx += bw + 8;
             return c;
         };
+        // opened after the frame: ShellExecute pumps messages and must not run inside painting
         if (btn(T("about_github"), Ico::Link, Ui::Id("gh")))
-            ShellExecuteW(nullptr, L"open", BT_REPO_URL, nullptr, nullptr, SW_SHOWNORMAL);
+            ui.Defer([]() { ShellExecuteW(nullptr, L"open", BT_REPO_URL, nullptr, nullptr, SW_SHOWNORMAL); });
         if (btn(T("about_request"), Ico::Add, Ui::Id("req")))
-            ShellExecuteW(nullptr, L"open", BT_REPO_URL L"/issues/new", nullptr, nullptr, SW_SHOWNORMAL);
+            ui.Defer([]() { ShellExecuteW(nullptr, L"open", BT_REPO_URL L"/issues/new", nullptr, nullptr, SW_SHOWNORMAL); });
         if (btn(T("about_config"), Ico::Folder, Ui::Id("cfg")))
-            ShellExecuteW(nullptr, L"open", ConfigDir().c_str(), nullptr, nullptr, SW_SHOWNORMAL);
+            ui.Defer([]() { ShellExecuteW(nullptr, L"open", ConfigDir().c_str(), nullptr, nullptr, SW_SHOWNORMAL); });
         y += 48;
     }
 

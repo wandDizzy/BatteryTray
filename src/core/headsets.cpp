@@ -22,6 +22,7 @@ struct Step {
     int   acceptAt = -1;      // optional check: resp[acceptAt] == acceptVal
     unsigned char acceptVal = 0;
     int   minLen = 4;
+    int   timeoutMs = 500;
 };
 
 struct Result {
@@ -39,6 +40,8 @@ struct HsSpec {
     unsigned short page, usage;        // 0 = any vendor collection
     std::vector<Step> steps;
     Result (*parse)(unsigned short pid, const std::vector<Bytes>& r);
+    int minIntervalSec = 0;            // ask the device at most this often (keeps slow receivers happy)
+    const char* source = "headset";
 };
 
 int Map(int v, int lo, int hi) {
@@ -206,9 +209,9 @@ bool Matches(const HsSpec& s, const HidIface& f) {
 
 bool Exchange(HidPort& p, const Step& st, Bytes& resp) {
     if (!p.Write(st.req)) return false;
-    DWORD start = GetTickCount();
-    while (GetTickCount() - start < 500) {
-        int n = p.Read(resp, 500 - (GetTickCount() - start));
+    DWORD start = GetTickCount(), limit = (DWORD)st.timeoutMs;
+    while (GetTickCount() - start < limit) {
+        int n = p.Read(resp, limit - (GetTickCount() - start));
         if (n <= 0) return false;
         if (n < st.minLen) continue;
         if (st.acceptAt >= 0 && (st.acceptAt >= n || resp[st.acceptAt] != st.acceptVal)) continue;   // unrelated report
@@ -219,6 +222,7 @@ bool Exchange(HidPort& p, const Step& st, Bytes& resp) {
 
 std::map<std::string, std::wstring> g_goodPath;   // device id -> collection that answered last time
 std::map<std::string, Device> g_last;              // last good reading (kept while the headset is off)
+std::map<std::string, DWORD> g_lastAsk;            // for devices with minIntervalSec
 
 } // namespace
 
@@ -232,6 +236,15 @@ void PollHeadsets(std::vector<Device>& out) {
         if (cands.empty()) continue;
         std::string id = "hs:" + HexId(cands[0]->vid) + ":" + HexId(cands[0]->pid);
         if (done[id]) continue;
+        if (s.minIntervalSec > 0 && g_lastAsk.count(id)) {
+            DWORD wait = g_last.count(id) ? (DWORD)s.minIntervalSec * 1000 : 15000;   // retry sooner until the first answer
+            if (GetTickCount() - g_lastAsk[id] < wait) {
+                if (g_last.count(id)) out.push_back(g_last[id]);   // recent value is still good
+                done[id] = true;
+                continue;
+            }
+        }
+        g_lastAsk[id] = GetTickCount();
         auto gp = g_goodPath.find(id);
         if (gp != g_goodPath.end())
             std::stable_partition(cands.begin(), cands.end(), [&](const HidIface* f) { return f->path == gp->second; });
@@ -259,7 +272,7 @@ void PollHeadsets(std::vector<Device>& out) {
             d.id = id;
             d.name = f->product.empty() ? s.name : f->product;
             d.type = s.type;
-            d.source = "headset";
+            d.source = s.source;
             d.online = true;
             d.idle = !x.present;
             if (x.present) {

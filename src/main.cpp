@@ -15,6 +15,7 @@
 #include "ui/tray_icons.h"
 #include "ui/ui.h"
 #include "ui/widget.h"
+#include "ui/overlay.h"
 #include <shellapi.h>
 #include <commctrl.h>
 #include <algorithm>
@@ -38,6 +39,41 @@ static UINT g_taskbarCreated;
 static HANDLE g_wake, g_quit;
 static std::atomic<int> g_interval{5};
 static bool g_notifyActive;
+static std::string g_hotkey;          // currently active overlay hotkey
+static bool g_tabWasDown;
+
+// True when the foreground window covers its whole monitor (a game in fullscreen / borderless).
+static bool FullscreenAppInFront() {
+    HWND fg = GetForegroundWindow();
+    if (!fg || fg == GetDesktopWindow() || fg == GetShellWindow()) return false;
+    wchar_t cls[64] = L"";
+    GetClassNameW(fg, cls, 64);
+    if (!wcscmp(cls, L"Progman") || !wcscmp(cls, L"WorkerW") || !wcscmp(cls, L"Shell_TrayWnd")) return false;
+    RECT r;
+    if (!GetWindowRect(fg, &r)) return false;
+    MONITORINFO mi{sizeof(mi)};
+    GetMonitorInfoW(MonitorFromWindow(fg, MONITOR_DEFAULTTONEAREST), &mi);
+    return r.left <= mi.rcMonitor.left && r.top <= mi.rcMonitor.top && r.right >= mi.rcMonitor.right &&
+           r.bottom >= mi.rcMonitor.bottom;
+}
+
+// Shift+Tab is watched without taking it away from other programs (it still reaches the game and
+// Steam); the other combinations are normal Windows hotkeys.
+static void ApplyHotkey() {
+    if (g_hotkey == g_cfg.overlay.hotkey) return;
+    UnregisterHotKey(g_wnd, 1);
+    KillTimer(g_wnd, 3);
+    g_hotkey = g_cfg.overlay.hotkey;
+    if (g_hotkey == "shift+tab") SetTimer(g_wnd, 3, 40, nullptr);
+    else if (g_hotkey == "alt+b") RegisterHotKey(g_wnd, 1, MOD_ALT | MOD_NOREPEAT, 'B');
+    else if (g_hotkey == "ctrl+alt+b") RegisterHotKey(g_wnd, 1, MOD_CONTROL | MOD_ALT | MOD_NOREPEAT, 'B');
+    else RegisterHotKey(g_wnd, 1, MOD_CONTROL | MOD_SHIFT | MOD_NOREPEAT, 'B');
+}
+
+static void HotkeyPressed() {
+    if (!g_cfg.overlay.enabled) { g_cfg.overlay.enabled = true; g_cfg.overlay.mode = "hotkey"; AppApply(); }
+    OverlayToggle();
+}
 
 // ===================================================================== app API
 
@@ -189,6 +225,7 @@ static void UpdateUi() {
     bool widget = g_cfg.displayMode != MODE_TRAY;
     std::set<UINT> wanted;
     std::vector<WidgetItem> items;
+    std::vector<OverlayItem> overlay;
 
     for (auto& d : g_devices) {
         // low-battery notification (once per discharge cycle), also for hidden devices
@@ -228,6 +265,18 @@ static void UpdateUi() {
         w.dim = !d.online || d.idle;
         w.tip = Tip(d);
         items.push_back(w);
+
+        OverlayItem o;
+        o.glyph = w.glyph;
+        o.customGlyphColor = w.customGlyphColor;
+        o.glyphColor = w.glyphColor;
+        o.name = AppDisplayName(d);
+        o.battery = d.battery;
+        o.color = w.textColor;
+        o.charging = w.charging;
+        o.dim = w.dim;
+        o.low = d.battery >= 0 && d.battery <= thr && !d.charging;
+        overlay.push_back(o);
     }
     if (tray && wanted.empty()) {
         wanted.insert(kPlaceholderId);
@@ -240,6 +289,7 @@ static void UpdateUi() {
 
     if (widget) WidgetUpdate(g_wnd, items, g_cfg.widgetHover, g_cfg.theme.animations);
     else WidgetDestroy();
+    OverlayUpdate(overlay, g_cfg);
 }
 
 void AppApply() {
@@ -248,6 +298,7 @@ void AppApply() {
     SetCustomDongles(g_cfg.customDongles);
     SetDebugLog(g_cfg.debugLog);
     SaveConfig(g_cfg);
+    ApplyHotkey();
     UpdateUi();
     UiWindow::ApplyThemeAll();
 }
@@ -264,6 +315,8 @@ static DWORD WINAPI PollThread(LPVOID) {
         PollHidpp(*list);
         PollRazer(*list);
         PollHeadsets(*list);
+        PollAsus(*list);
+        PollEvision(*list);
         PollGamepads(*list);
         // Bluetooth values come from Windows and change slowly: refresh every 30 s
         DWORD now = GetTickCount();
@@ -317,6 +370,9 @@ static LRESULT CALLBACK WndProc(HWND h, UINT msg, WPARAM wp, LPARAM lp) {
         if (!id.empty() && WidgetItemRect(id, &r)) AppOpenFlyout(id, r);
         return 0;
     }
+    case WM_HOTKEY:
+        if (wp == 1) HotkeyPressed();
+        return 0;
     case WM_WIDGET_REATTACH:
         WidgetReattach();
         return 0;
@@ -324,6 +380,13 @@ static LRESULT CALLBACK WndProc(HWND h, UINT msg, WPARAM wp, LPARAM lp) {
         SetTimer(h, 1, 1500, nullptr);
         return TRUE;
     case WM_TIMER:
+        if (wp == 3) {   // Shift+Tab watcher
+            bool down = (GetAsyncKeyState(VK_TAB) & 0x8000) && (GetAsyncKeyState(VK_SHIFT) & 0x8000) &&
+                        !(GetAsyncKeyState(VK_CONTROL) & 0x8000) && !(GetAsyncKeyState(VK_MENU) & 0x8000);
+            if (down && !g_tabWasDown && FullscreenAppInFront()) HotkeyPressed();
+            g_tabWasDown = down;
+            return 0;
+        }
         KillTimer(h, wp);
         if (wp == 1) SetEvent(g_wake);
         else if (wp == 2) { g_notifyActive = false; RemoveIcon(kNotifyId); }
@@ -339,6 +402,9 @@ static LRESULT CALLBACK WndProc(HWND h, UINT msg, WPARAM wp, LPARAM lp) {
         return 0;
     case WM_DESTROY: {
         UiWindow::CloseAll();
+        UnregisterHotKey(h, 1);
+        KillTimer(h, 3);
+        OverlayDestroy();
         WidgetDestroy();
         std::vector<UINT> ids(g_shown.begin(), g_shown.end());
         for (UINT id : ids) RemoveIcon(id);
@@ -383,6 +449,7 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, LPWSTR, int) {
     RegisterClassW(&wc);
     g_wnd = CreateWindowExW(0, kWndClass, L"BatteryTray", 0, 0, 0, 0, 0, nullptr, nullptr, inst, nullptr);
     g_taskbarCreated = RegisterWindowMessageW(L"TaskbarCreated");
+    ApplyHotkey();   // overlay on / off
     ChangeWindowMessageFilterEx(g_wnd, g_taskbarCreated, MSGFLT_ALLOW, nullptr);
 
     g_wake = CreateEventW(nullptr, FALSE, FALSE, nullptr);

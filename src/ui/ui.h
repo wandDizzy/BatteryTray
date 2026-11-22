@@ -165,6 +165,7 @@ private:
     LARGE_INTEGER lastTick_{};
     bool timer_ = false;
     bool tracking_ = false;
+    bool painting_ = false;
 
     // background picture
     ID2D1Bitmap* bgBitmap_ = nullptr;

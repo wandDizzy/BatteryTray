@@ -122,6 +122,15 @@ void LoadConfig(Config& c) {
     c.theme.imageDim = Clamp(th["imageDim"].asInt(c.theme.imageDim), 0, 90);
     c.theme.animations = th["animations"].asBool(c.theme.animations);
 
+    const Json& ov = j["overlay"];
+    c.overlay.enabled = ov["enabled"].asBool(c.overlay.enabled);
+    c.overlay.mode = ov["mode"].asStr(c.overlay.mode);
+    c.overlay.corner = ov["corner"].asStr(c.overlay.corner);
+    c.overlay.opacity = Clamp(ov["opacity"].asInt(c.overlay.opacity), 0, 100);
+    c.overlay.scale = Clamp(ov["scale"].asInt(c.overlay.scale), 60, 200);
+    c.overlay.showNames = ov["showNames"].asBool(c.overlay.showNames);
+    c.overlay.hotkey = ov["hotkey"].asStr(c.overlay.hotkey);
+
     const Json& col = j["colors"];
     ReadColor(col, "high", c.colHigh);
     ReadColor(col, "medium", c.colMid);
@@ -186,6 +195,15 @@ void SaveConfig(const Config& c) {
     th["imageBlur"] = c.theme.imageBlur;
     th["imageDim"] = c.theme.imageDim;
     th["animations"] = c.theme.animations;
+
+    Json& ov = j["overlay"];
+    ov["enabled"] = c.overlay.enabled;
+    ov["mode"] = c.overlay.mode;
+    ov["corner"] = c.overlay.corner;
+    ov["opacity"] = c.overlay.opacity;
+    ov["scale"] = c.overlay.scale;
+    ov["showNames"] = c.overlay.showNames;
+    ov["hotkey"] = c.overlay.hotkey;
 
     Json& col = j["colors"];
     col["high"] = ColorToHex(c.colHigh);

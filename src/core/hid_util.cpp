@@ -62,6 +62,12 @@ std::vector<HidIface> EnumHid() {
                 f.outLen = caps.OutputReportByteLength;
                 f.featLen = caps.FeatureReportByteLength;
 
+                if (caps.NumberInputValueCaps) {
+                    USHORT ni = caps.NumberInputValueCaps;
+                    std::vector<HIDP_VALUE_CAPS> iv(ni);
+                    if (HidP_GetValueCaps(HidP_Input, iv.data(), &ni, pp) == HIDP_STATUS_SUCCESS && ni)
+                        f.inReportId = iv[0].ReportID;
+                }
                 USHORT n = caps.NumberFeatureValueCaps;
                 if (n) {
                     std::vector<HIDP_VALUE_CAPS> vc(n);

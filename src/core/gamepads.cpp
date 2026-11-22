@@ -33,6 +33,10 @@ std::wstring XInputName(const std::vector<HidIface>& ifaces) {
         if (p.find(L"ig_") == std::wstring::npos || f.product.empty()) continue;
         if (name != f.product) { name = f.product; count++; }
     }
+    // some pads put a line break into their name
+    for (auto& c : name) if (c == L'\n' || c == L'\r' || c == L'\t') c = L' ';
+    while (!name.empty() && name.back() == L' ') name.pop_back();
+    while (name.find(L" )") != std::wstring::npos) name.replace(name.find(L" )"), 2, L")");
     if (count == 1) {
         // "Controller (Xbox One For Windows)" -> keep as is; generic names get a nicer label
         if (name.find(L"XINPUT") != std::wstring::npos || name == L"Controller") return L"";
@@ -52,8 +56,9 @@ void PollXInput(std::vector<Device>& out, const std::vector<HidIface>& ifaces) {
         XINPUT_BATTERY_INFORMATION bi{};
         if (api.battery(i, BATTERY_DEVTYPE_GAMEPAD, &bi) != ERROR_SUCCESS) continue;
         DbgLog("xinput %lu type=%u level=%u", i, bi.BatteryType, bi.BatteryLevel);
-        // wired pads (and many cheap wireless ones that pretend to be wired) have no battery data
-        if (bi.BatteryType == BATTERY_TYPE_DISCONNECTED || bi.BatteryType == BATTERY_TYPE_WIRED) continue;
+        if (bi.BatteryType == BATTERY_TYPE_DISCONNECTED) continue;
+        // Many 2.4 GHz pads (GamePro and other Xbox-compatible ones) tell Windows they are wired, so nobody
+        // can know their level. They are still listed, with an unknown level, so the user sees them.
         if (!nameDone) { hidName = XInputName(ifaces); nameDone = true; }
         Device d;
         d.id = "xinput:" + std::to_string(i);
@@ -61,7 +66,7 @@ void PollXInput(std::vector<Device>& out, const std::vector<HidIface>& ifaces) {
         d.type = DevType::Gamepad;
         d.source = "xinput";
         d.online = true;
-        if (bi.BatteryType == BATTERY_TYPE_UNKNOWN) d.battery = -1;
+        if (bi.BatteryType == BATTERY_TYPE_UNKNOWN || bi.BatteryType == BATTERY_TYPE_WIRED) d.battery = -1;
         else {
             static const int lv[] = {5, 30, 65, 100};
             d.battery = lv[bi.BatteryLevel & 3];

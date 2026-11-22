@@ -27,7 +27,7 @@ enum {
     CMD_THEME_SYS, CMD_THEME_DARK, CMD_THEME_LIGHT,
     CMD_LANG_AUTO, CMD_LANG_EN, CMD_LANG_UK, CMD_LANG_RU,
     CMD_INT_5, CMD_INT_10, CMD_INT_30, CMD_INT_60, CMD_INT_300,
-    CMD_REFRESH, CMD_AUTOSTART, CMD_SETTINGS, CMD_CONFIG, CMD_REQUEST, CMD_EXIT,
+    CMD_OVERLAY, CMD_REFRESH, CMD_AUTOSTART, CMD_SETTINGS, CMD_CONFIG, CMD_REQUEST, CMD_EXIT,
 };
 enum { ACT_SETTINGS = 0, ACT_SHOW = 1, ACT_LEFT = 2, ACT_RIGHT = 3 };
 
@@ -74,6 +74,7 @@ void ShowMainMenu(HWND owner) {
     int tsel = c.theme.mode == "dark" ? 1 : c.theme.mode == "light" ? 2 : 0;
     CheckMenuRadioItem(theme, CMD_THEME_SYS, CMD_THEME_LIGHT, CMD_THEME_SYS + tsel, MF_BYCOMMAND);
     AppendMenuW(m, MF_POPUP, (UINT_PTR)theme, T("menu_theme"));
+    AppendMenuW(m, Check(c.overlay.enabled), CMD_OVERLAY, T("menu_overlay"));
     AppendMenuW(m, MF_SEPARATOR, 0, nullptr);
 
     HMENU lang = CreatePopupMenu();
@@ -141,6 +142,7 @@ void ShowMainMenu(HWND owner) {
     case CMD_LANG_RU: c.language = L"ru"; AppApply(); break;
     case CMD_INT_5: case CMD_INT_10: case CMD_INT_30: case CMD_INT_60: case CMD_INT_300:
         c.intervalSec = vals[cmd - CMD_INT_5]; AppApply(); AppRefreshNow(); break;
+    case CMD_OVERLAY: c.overlay.enabled = !c.overlay.enabled; AppApply(); break;
     case CMD_REFRESH: AppRefreshNow(); break;
     case CMD_AUTOSTART: SetAutostart(!GetAutostart()); break;
     case CMD_SETTINGS: AppOpenSettings(0); break;

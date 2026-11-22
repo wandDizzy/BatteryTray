@@ -569,6 +569,8 @@ void UiWindow::DrawBackground(const Rect& client) {
 }
 
 void UiWindow::Paint() {
+    if (painting_) return;          // a modal call inside a frame must not start another frame
+    struct Guard { bool& b; Guard(bool& x) : b(x) { b = true; } ~Guard() { b = false; } } guard(painting_);
     if (!target_) CreateTarget();
     if (!target_) { ValidateRect(hwnd, nullptr); return; }
 

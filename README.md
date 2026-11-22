@@ -10,6 +10,7 @@ one pictogram + percent per device, next to the clock.
 - Each device is its own pictogram: **left click** opens that device's panel
   (rename, icon, color, notifications, order), **right click** opens the menu
 - Windows 11 look: Mica / Acrylic, dark & light themes, accent colors, your own background picture, animations
+- **Game overlay**: a click-through panel in a screen corner over windowed / borderless games, **Ctrl+Shift+B** to show or hide
 - Low-battery notifications, start with Windows, languages: English, Українська, Русский
 - Settings in a readable `config.json`
 
@@ -24,6 +25,8 @@ one pictogram + percent per device, next to the clock.
 | Corsair receiver | vendor status request | VOID / VOID PRO / HS70 / HS80 wireless family |
 | HyperX receiver | vendor status request | Cloud II Wireless, Cloud Alpha Wireless |
 | SteelSeries mouse (receiver / cable) | vendor battery request (as documented by rivalcfg) | Aerox 3 / 5 / 9 Wireless, Prime Wireless, Rival 3 Wireless, Rival 650 |
+| ASUS receiver / cable | ROG battery request (12 07 mouse, 12 01 keyboard) | ROG / TUF wireless mice (Keris, Harpe, Gladius, Chakram …) and keyboards, ROG Omni receiver |
+| Evision keyboard receiver (320F:5088) | report 04, battery command 1A | Epomaker, VGN / VXE, IQUNIX, Rainy, Feker and other keyboards on this receiver |
 | Gamepads | XInput (Windows, 4 steps) / Sony input reports | Xbox and Xbox-compatible wireless pads, DualShock 4, DualSense |
 | Bluetooth | the value Windows itself stores | any device that reports battery to Windows |
 | USB / HID | standard HID "Battery Strength" usage | devices that expose it |
@@ -69,6 +72,7 @@ tools/hidprobe/       diagnostic tool for adding new devices
 Headset protocols were reverse engineered by [HeadsetControl](https://github.com/Sapd/HeadsetControl),
 the Razer report layout is documented by [OpenRazer](https://github.com/openrazer/openrazer),
 SteelSeries mouse commands by [rivalcfg](https://github.com/flozz/rivalcfg),
+the Evision keyboard request was published by vgn-battery and other battery monitors,
 the GearHub receiver status request (Ajazz, Hator, Attack Shark …) by [Joule](https://github.com/DillanCidral/Joule).
 BatteryTray contains its own implementation of these protocols.
 

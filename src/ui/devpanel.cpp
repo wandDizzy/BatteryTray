@@ -15,11 +15,12 @@ std::wstring DeviceStatusText(const Device& d) {
     if (!d.online) return T("not_connected");
     if (d.idle) return T("asleep");
     if (d.charging) return T("charging");
+    if (d.battery < 0) return T("no_level");
     return T("online");
 }
 
 std::wstring DeviceSourceText(const Device& d) {
-    if (d.source == "dongle" || d.source == "razer" || d.source == "headset") return T("src_dongle");
+    if (d.source == "dongle" || d.source == "razer" || d.source == "headset" || d.source == "asus") return T("src_dongle");
     if (d.source == "hidpp") return T("src_hidpp");
     if (d.source == "bluetooth") return T("src_bluetooth");
     if (d.source == "xinput") return T("src_xinput");

@@ -35,6 +35,16 @@ struct ThemeSettings {
     bool         animations = true;
 };
 
+struct OverlaySettings {
+    bool        enabled = false;
+    std::string mode = "always";     // always | low | hotkey
+    std::string corner = "top-right"; // top-left | top-right | bottom-left | bottom-right
+    int         opacity = 70;        // panel background, %
+    int         scale = 100;         // %
+    bool        showNames = true;
+    std::string hotkey = "shift+tab"; // shift+tab (only in fullscreen games) | ctrl+shift+b | alt+b | ctrl+alt+b
+};
+
 struct Config {
     int  intervalSec = 5;
     int  lowThreshold = 20;
@@ -54,6 +64,7 @@ struct Config {
     COLORREF colText = RGB(255, 255, 255);   // text on the tray "badge" style
     std::wstring language = L"auto";         // auto | en | uk | ru
     ThemeSettings theme;
+    OverlaySettings overlay;
     std::map<std::string, DeviceSettings> devices;
     std::vector<DongleSpec> customDongles;
 };

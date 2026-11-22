@@ -10,6 +10,7 @@ struct HidIface {
     unsigned short vid = 0, pid = 0;
     unsigned short usagePage = 0, usage = 0;
     unsigned short inLen = 0, outLen = 0, featLen = 0;
+    unsigned char  inReportId = 0;          // report ID of the first input report (0 = none)
     // Standard battery usage found in a FEATURE report (0 = none)
     bool           hasStdBattery = false;
     unsigned char  stdBatteryReportId = 0;

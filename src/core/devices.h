@@ -36,4 +36,6 @@ void PollHidpp(std::vector<Device>& out);      // Logitech HID++ 2.0
 void PollBluetooth(std::vector<Device>& out);  // Windows Bluetooth battery property
 void PollRazer(std::vector<Device>& out);      // Razer mice / keyboards (90-byte feature report protocol)
 void PollHeadsets(std::vector<Device>& out);   // SteelSeries, Corsair, HyperX headsets
+void PollEvision(std::vector<Device>& out);    // keyboards on the Evision receiver (Epomaker, VGN, VXE ...)
+void PollAsus(std::vector<Device>& out);       // ASUS ROG / TUF mice and keyboards
 void PollGamepads(std::vector<Device>& out);   // XInput (Xbox-compatible) and Sony DualShock 4 / DualSense
